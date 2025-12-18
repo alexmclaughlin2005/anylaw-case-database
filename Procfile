@@ -1,2 +1,2 @@
-web: gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --access-logfile - --error-logfile -
+web: cd backend && python -m flask run --host=0.0.0.0 --port=$PORT
 
