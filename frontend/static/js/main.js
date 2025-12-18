@@ -70,59 +70,8 @@ const utils = {
     }
 };
 
-// API client
-const api = {
-    baseUrl: window.location.origin,
-
-    /**
-     * Fetch statistics
-     */
-    getStats: async () => {
-        const response = await fetch(`${api.baseUrl}/api/stats`);
-        if (!response.ok) throw new Error('Failed to fetch stats');
-        return await response.json();
-    },
-
-    /**
-     * Search cases
-     */
-    search: async (query, filters = {}) => {
-        const params = new URLSearchParams({
-            q: query || '',
-            limit: filters.limit || 20,
-            offset: filters.offset || 0
-        });
-
-        if (filters.jurisdiction) params.append('jurisdiction', filters.jurisdiction);
-        if (filters.year) params.append('year', filters.year);
-
-        const response = await fetch(`${api.baseUrl}/api/search?${params}`);
-        if (!response.ok) throw new Error('Failed to search');
-        return await response.json();
-    },
-
-    /**
-     * Get document by ID
-     */
-    getDocument: async (docId) => {
-        const response = await fetch(`${api.baseUrl}/api/document/${docId}`);
-        if (!response.ok) throw new Error('Document not found');
-        return await response.json();
-    },
-
-    /**
-     * Get jurisdictions list
-     */
-    getJurisdictions: async () => {
-        const response = await fetch(`${api.baseUrl}/api/jurisdictions`);
-        if (!response.ok) throw new Error('Failed to fetch jurisdictions');
-        return await response.json();
-    }
-};
-
-// Export to global scope
+// Export utils to global scope
 window.utils = utils;
-window.api = api;
 
-console.log('AnyLaw Database Navigator loaded');
+console.log('AnyLaw Utils loaded');
 
