@@ -220,11 +220,20 @@ except Exception as e:
 @app.route('/health')
 def health_check():
     """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'service': 'anylaw-backend',
-        'version': '1.0.0'
-    })
+    try:
+        return jsonify({
+            'status': 'healthy',
+            'service': 'anylaw-backend',
+            'version': '1.0.0'
+        }), 200
+    except Exception as e:
+        print(f"❌ Error in /health: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/ping')
+def ping():
+    """Simplest possible endpoint"""
+    return "PONG", 200
 
 @app.route('/test')
 def test():
