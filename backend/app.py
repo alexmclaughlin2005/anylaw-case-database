@@ -192,7 +192,23 @@ class CaseLawDatabase:
 
 
 # Initialize database
+print(f"🚀 Initializing AnyLaw Backend...")
+print(f"📂 Data directory: {DATA_DIR}")
+print(f"📂 Data exists: {DATA_DIR.exists() if DATA_DIR else False}")
+print(f"📄 Index file: {INDEX_FILE}")
+print(f"📄 Index exists: {INDEX_FILE.exists() if INDEX_FILE else False}")
+
 db = CaseLawDatabase(DATA_DIR, INDEX_FILE)
+
+# Warm up the cache on startup
+try:
+    print(f"🔄 Loading database index...")
+    stats = db.get_stats()
+    print(f"✅ Successfully loaded {stats['total_cases']} cases!")
+except Exception as e:
+    print(f"❌ ERROR loading database: {e}")
+    import traceback
+    traceback.print_exc()
 
 
 # Health check endpoint for Railway
