@@ -317,14 +317,30 @@ def internal_error(error):
 
 
 if __name__ == '__main__':
+    import sys
     print("Starting AnyLaw Backend API...")
+    print(f"Python version: {sys.version}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"__file__ location: {__file__}")
+    print(f"RAILWAY_ENVIRONMENT: {os.getenv('RAILWAY_ENVIRONMENT')}")
     print(f"Data directory: {DATA_DIR}")
-    print(f"Loading index from: {INDEX_FILE}")
+    print(f"Data directory exists: {DATA_DIR.exists() if DATA_DIR else 'N/A'}")
+    print(f"Index file: {INDEX_FILE}")
+    print(f"Index file exists: {INDEX_FILE.exists() if INDEX_FILE else 'N/A'}")
+    
+    if DATA_DIR and DATA_DIR.exists():
+        print(f"Files in data directory: {len(list(DATA_DIR.glob('*.json')))}")
     
     # Warm up the cache
-    stats = db.get_stats()
-    print(f"Loaded {stats['total_cases']} cases")
+    try:
+        stats = db.get_stats()
+        print(f"✅ Loaded {stats['total_cases']} cases")
+    except Exception as e:
+        print(f"❌ Error loading data: {e}")
+        import traceback
+        traceback.print_exc()
     
     port = int(os.getenv('PORT', 5000))
+    print(f"Starting server on port {port}...")
     app.run(debug=False, host='0.0.0.0', port=port)
 
