@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Search Cases - AnyLaw Database{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>🔍 Search Cases</h1>
+        <p class="subtitle">Search through the caselaw database</p>
+    </div>
+    
+    <div class="search-section">
+        <div class="search-tabs">
+            <button class="tab-btn active" onclick="switchTab('text')">Text Search</button>
+            <button class="tab-btn" onclick="switchTab('citation')">Citation Lookup</button>
+        </div>
+        
+        <div id="textSearchBox" class="search-box">
+            <input type="text" id="searchQuery" placeholder="Enter case title, keywords, or jurisdiction..." />
+            <button onclick="performSearch()" class="btn-primary">Search</button>
+        </div>
+        
+        <div id="citationSearchBox" class="search-box" style="display: none;">
+            <input type="text" id="citationQuery" placeholder="Enter citation (e.g., 367 U.S. 1 or 251 F. Supp.2d 176)..." />
+            <button onclick="lookupByCitation()" class="btn-primary">Find Case</button>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label for="jurisdictionFilter">Jurisdiction:</label>
+                <select id="jurisdictionFilter">
+                    <option value="">All Jurisdictions</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label for="yearFilter">Year:</label>
+                <input type="number" id="yearFilter" placeholder="YYYY" min="1800" max="2025" />
+            </div>
+            
+            <button onclick="clearFilters()" class="btn-secondary">Clear Filters</button>
+        </div>
+    </div>
+    
+    <div class="results-section">
+        <div id="resultsInfo" class="results-info"></div>
+        <div id="resultsContainer" class="results-container"></div>
+        <div id="pagination" class="pagination"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentPage = 0;
+const resultsPerPage = 20;
+let totalResults = 0;
+let currentSearchMode = 'text'; // 'text' or 'citation'
+
+function switchTab(mode) {
+    currentSearchMode = mode;
+    
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    
+    // Show/hide search boxes
+    if (mode === 'text') {
+        document.getElementById('textSearchBox').style.display = 'flex';
+        document.getElementById('citationSearchBox').style.display = 'none';
+        document.querySelector('.filters').style.display = 'flex';
+    } else {
+        document.getElementById('textSearchBox').style.display = 'none';
+        document.getElementById('citationSearchBox').style.display = 'flex';
+        document.querySelector('.filters').style.display = 'none';
+    }
+    
+    // Clear results
+    document.getElementById('resultsContainer').innerHTML = '';
+    document.getElementById('resultsInfo').textContent = '';
+    document.getElementById('pagination').innerHTML = '';
+}
+
+async function lookupByCitation() {
+    const citation = document.getElementById('citationQuery').value.trim();
+    
+    if (!citation) {
+        alert('Please enter a citation');
+        return;
+    }
+    
+    document.getElementById('resultsInfo').textContent = 'Looking up citation...';
+    document.getElementById('resultsContainer').innerHTML = '';
+    document.getElementById('pagination').innerHTML = '';
+    
+    try {
+        const encoded = encodeURIComponent(citation);
+        const response = await fetch(`/api/citation/${encoded}`);
+        
+        if (response.ok) {
+            const caseInfo = await response.json();
+            
+            // Display single result
+            document.getElementById('resultsInfo').textContent = 'Citation found!';
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="result-card citation-result">
+                    <div class="citation-badge-large">📖 ${escapeHtml(citation)}</div>
+                    <h3><a href="/case/${caseInfo.id}">${escapeHtml(caseInfo.title)}</a></h3>
+                    <div class="result-meta">
+                        <span class="meta-item">📍 ${escapeHtml(caseInfo.jurisdiction)}</span>
+                        <span class="meta-item">📅 ${formatDate(caseInfo.date)}</span>
+                        <span class="meta-item">🆔 ${escapeHtml(caseInfo.id)}</span>
+                    </div>
+                    <div class="citation-actions">
+                        <a href="/case/${caseInfo.id}" class="btn-primary">View Full Case</a>
+                    </div>
+                </div>
+            `;
+        } else {
+            document.getElementById('resultsInfo').textContent = '';
+            document.getElementById('resultsContainer').innerHTML = `
+                <div class="no-results">
+                    <h3>📖 Citation Not Found</h3>
+                    <p>The citation "${escapeHtml(citation)}" was not found in the database.</p>
+                    <p><strong>Tips:</strong></p>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>Check the citation format (e.g., "367 U.S. 1")</li>
+                        <li>Ensure proper spacing and punctuation</li>
+                        <li>Try a different citation for the same case</li>
+                        <li>Use Text Search to find the case by title</li>
+                    </ul>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error looking up citation:', error);
+        document.getElementById('resultsInfo').textContent = '';
+        document.getElementById('resultsContainer').innerHTML = 
+            '<div class="error">Error looking up citation</div>';
+    }
+}
+
+async function loadJurisdictions() {
+    try {
+        const response = await fetch('/api/jurisdictions');
+        const jurisdictions = await response.json();
+        const select = document.getElementById('jurisdictionFilter');
+        
+        jurisdictions.forEach(jur => {
+            const option = document.createElement('option');
+            option.value = jur;
+            option.textContent = jur;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading jurisdictions:', error);
+    }
+}
+
+async function performSearch(page = 0) {
+    currentPage = page;
+    const query = document.getElementById('searchQuery').value;
+    const jurisdiction = document.getElementById('jurisdictionFilter').value;
+    const year = document.getElementById('yearFilter').value;
+    
+    const params = new URLSearchParams({
+        q: query,
+        limit: resultsPerPage,
+        offset: page * resultsPerPage
+    });
+    
+    if (jurisdiction) params.append('jurisdiction', jurisdiction);
+    if (year) params.append('year', year);
+    
+    try {
+        const response = await fetch(`/api/search?${params}`);
+        const data = await response.json();
+        
+        totalResults = data.total;
+        displayResults(data.results);
+        displayPagination(data.total, data.offset);
+        
+    } catch (error) {
+        console.error('Error searching:', error);
+        document.getElementById('resultsContainer').innerHTML = 
+            '<div class="error">Error performing search</div>';
+    }
+}
+
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+    const info = document.getElementById('resultsInfo');
+    
+    if (results.length === 0) {
+        container.innerHTML = '<div class="no-results">No cases found</div>';
+        info.textContent = '';
+        return;
+    }
+    
+    info.textContent = `Found ${totalResults} case${totalResults !== 1 ? 's' : ''}`;
+    
+    container.innerHTML = results.map(doc => `
+        <div class="result-card">
+            <h3><a href="/case/${doc.id}">${escapeHtml(doc.title || 'Untitled')}</a></h3>
+            <div class="result-meta">
+                <span class="meta-item">📍 ${escapeHtml(doc.jurisdiction || 'Unknown')}</span>
+                <span class="meta-item">📅 ${formatDate(doc.date)}</span>
+                ${doc.cited_as && doc.cited_as.length > 0 ? 
+                    `<span class="meta-item">📖 ${escapeHtml(doc.cited_as[0])}</span>` : ''}
+            </div>
+            ${doc.full_title ? `<p class="result-excerpt">${escapeHtml(doc.full_title.substring(0, 200))}...</p>` : ''}
+        </div>
+    `).join('');
+}
+
+function displayPagination(total, offset) {
+    const totalPages = Math.ceil(total / resultsPerPage);
+    const currentPage = Math.floor(offset / resultsPerPage);
+    
+    if (totalPages <= 1) {
+        document.getElementById('pagination').innerHTML = '';
+        return;
+    }
+    
+    let paginationHTML = '';
+    
+    if (currentPage > 0) {
+        paginationHTML += `<button onclick="performSearch(${currentPage - 1})" class="btn-pagination">« Previous</button>`;
+    }
+    
+    const startPage = Math.max(0, currentPage - 2);
+    const endPage = Math.min(totalPages - 1, currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            paginationHTML += `<button class="btn-pagination active">${i + 1}</button>`;
+        } else {
+            paginationHTML += `<button onclick="performSearch(${i})" class="btn-pagination">${i + 1}</button>`;
+        }
+    }
+    
+    if (currentPage < totalPages - 1) {
+        paginationHTML += `<button onclick="performSearch(${currentPage + 1})" class="btn-pagination">Next »</button>`;
+    }
+    
+    document.getElementById('pagination').innerHTML = paginationHTML;
+}
+
+function clearFilters() {
+    document.getElementById('searchQuery').value = '';
+    document.getElementById('jurisdictionFilter').value = '';
+    document.getElementById('yearFilter').value = '';
+    performSearch(0);
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return 'Unknown';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+        return dateStr;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Initialize
+loadJurisdictions();
+performSearch(0);
+
+// Allow Enter key to search
+document.getElementById('searchQuery').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') performSearch(0);
+});
+
+document.getElementById('citationQuery').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') lookupByCitation();
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,89 @@
+═══════════════════════════════════════════════════════════════
+  ANYLAW DEPLOYMENT - GITHUB QUICK COMMANDS
+═══════════════════════════════════════════════════════════════
+
+📋 STEP 1: CREATE GITHUB REPO
+────────────────────────────────────────────────────────────────
+1. Go to: https://github.com/new
+2. Name: anylaw-case-database
+3. Visibility: Public or Private (your choice)
+4. DO NOT initialize with README
+5. Create repository
+
+
+📋 STEP 2: PUSH TO GITHUB
+────────────────────────────────────────────────────────────────
+cd "/Users/alexmclaughlin/Desktop/Cursor Projects/AnyLaw"
+
+git init
+git add .
+git commit -m "Initial commit: AnyLaw ready for deployment"
+git remote add origin https://github.com/YOUR_USERNAME/anylaw-case-database.git
+git branch -M main
+git push -u origin main
+
+
+📋 STEP 3: DEPLOY BACKEND (Railway)
+────────────────────────────────────────────────────────────────
+1. Go to: https://railway.app
+2. New Project → Deploy from GitHub repo
+3. Select: anylaw-case-database
+4. Root Directory: backend  ⚠️ IMPORTANT!
+5. Add Variables:
+   FLASK_ENV=production
+   CORS_ORIGINS=https://your-app.vercel.app
+6. Generate Domain → Copy URL
+
+
+📋 STEP 4: UPDATE FRONTEND API URL
+────────────────────────────────────────────────────────────────
+# Edit frontend/env.js - replace with your Railway URL:
+
+window.ENV = {
+    API_URL: 'https://your-backend.railway.app'
+};
+
+# Then commit:
+git add frontend/env.js
+git commit -m "Update API URL to Railway backend"
+git push origin main
+
+
+📋 STEP 5: DEPLOY FRONTEND (Vercel)
+────────────────────────────────────────────────────────────────
+1. Go to: https://vercel.com
+2. Add New → Project
+3. Import: anylaw-case-database
+4. Root Directory: frontend  ⚠️ IMPORTANT!
+5. Deploy → Copy URL
+
+
+📋 STEP 6: UPDATE CORS
+────────────────────────────────────────────────────────────────
+1. Back to Railway → Variables
+2. Update CORS_ORIGINS to your Vercel URL
+3. Auto-redeploys
+
+
+📋 TEST YOUR DEPLOYMENT
+────────────────────────────────────────────────────────────────
+curl https://your-backend.railway.app/health
+
+Visit: https://your-frontend.vercel.app
+
+
+📋 FUTURE UPDATES
+────────────────────────────────────────────────────────────────
+git add .
+git commit -m "Your changes"
+git push origin main
+
+# Auto-deploys to Railway (if backend/* changed)
+# Auto-deploys to Vercel (if frontend/* changed)
+
+
+═══════════════════════════════════════════════════════════════
+Total Time: ~15-20 minutes
+Full Guide: GITHUB_DEPLOYMENT_GUIDE.md
+═══════════════════════════════════════════════════════════════
+

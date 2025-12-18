@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Case Detail - AnyLaw Database{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="breadcrumb">
+        <a href="/">Dashboard</a> » <a href="/search">Search</a> » <span id="caseTitle">Case</span>
+    </div>
+    
+    <div id="loading" class="loading">Loading case details...</div>
+    
+    <div id="caseContent" style="display: none;">
+        <div class="case-header">
+            <h1 id="caseTitleFull"></h1>
+            <div class="case-meta-grid">
+                <div class="meta-item">
+                    <strong>📍 Jurisdiction:</strong>
+                    <span id="caseJurisdiction"></span>
+                </div>
+                <div class="meta-item">
+                    <strong>📅 Date:</strong>
+                    <span id="caseDate"></span>
+                </div>
+                <div class="meta-item">
+                    <strong>📋 Docket:</strong>
+                    <span id="caseDocket"></span>
+                </div>
+                <div class="meta-item">
+                    <strong>📏 Length:</strong>
+                    <span id="caseLength"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="case-sections">
+            <div class="section">
+                <h2>📖 How to Cite This Case</h2>
+                <p class="section-description">Use these citations when referencing this case:</p>
+                <div id="caseCitations" class="citations-list"></div>
+            </div>
+            
+            <div class="section" id="extractedCitationsSection" style="display: none;">
+                <h2>🔗 Cases Cited in This Opinion</h2>
+                <p class="section-description">
+                    Found <span id="totalCitationsFound">0</span> citation references. 
+                    <span id="citationsInDbCount">0</span> are available in this database.
+                </p>
+                <div id="loadingCitations" class="loading-small">Extracting citations from opinion text...</div>
+                
+                <div id="numericCitations" style="display: none;">
+                    <h3 class="citation-type-header">📊 Numeric Citations</h3>
+                    <div class="citations-list" id="numericCitationsList"></div>
+                </div>
+                
+                <div id="nameCitations" style="display: none;">
+                    <h3 class="citation-type-header">📝 Case Name References</h3>
+                    <div class="citations-list" id="nameCitationsList"></div>
+                </div>
+                
+                <div id="noCitationsFound" class="info-message" style="display: none;">
+                    No cited cases found in this database sample. 
+                    The cases cited may be in the full 8.5M database.
+                </div>
+            </div>
+            
+            <div class="section" id="categoriesSection">
+                <h2>🏷️ Categories</h2>
+                <div id="caseCategories" class="tags-list"></div>
+            </div>
+            
+            <div class="section" id="judgesSection">
+                <h2>⚖️ Judges</h2>
+                <div id="caseJudges" class="text-content"></div>
+            </div>
+            
+            <div class="section" id="attorneysSection">
+                <h2>👔 Attorneys</h2>
+                <div id="caseAttorneys" class="text-content"></div>
+            </div>
+            
+            <div class="section">
+                <h2>📄 Full Opinion</h2>
+                <div class="body-controls">
+                    <button onclick="toggleBody()" id="toggleBodyBtn" class="btn-secondary">Show Full Text</button>
+                    <span class="word-count" id="wordCount"></span>
+                </div>
+                <div id="caseBody" class="case-body" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="errorMessage" class="error" style="display: none;">
+        Case not found
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const docId = "{{ doc_id }}";
+let caseData = null;
+let bodyVisible = false;
+
+async function loadCase() {
+    try {
+        const response = await fetch(`/api/document/${docId}`);
+        if (!response.ok) {
+            throw new Error('Case not found');
+        }
+        
+        caseData = await response.json();
+        displayCase();
+    } catch (error) {
+        console.error('Error loading case:', error);
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('errorMessage').style.display = 'block';
+    }
+}
+
+function displayCase() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('caseContent').style.display = 'block';
+    
+    const doc = caseData.document;
+    
+    // Title
+    const title = doc.title || 'Untitled Case';
+    document.getElementById('caseTitle').textContent = title;
+    document.getElementById('caseTitleFull').textContent = doc.full_title || title;
+    
+    // Metadata
+    document.getElementById('caseJurisdiction').textContent = doc.jurisdiction || 'Unknown';
+    document.getElementById('caseDate').textContent = formatDate(doc.date);
+    document.getElementById('caseDocket').textContent = doc.docket || 'N/A';
+    
+    const lengthKB = doc.body_length ? (doc.body_length / 1024).toFixed(1) : 'N/A';
+    document.getElementById('caseLength').textContent = 
+        doc.body_length ? `${lengthKB} KB (${estimateWords(doc.body_length)} words)` : 'N/A';
+    
+    // Citations for THIS case (how to cite it)
+    if (doc.citedas && doc.citedas.length > 0) {
+        document.getElementById('caseCitations').innerHTML = 
+            doc.citedas.map(cite => 
+                `<span class="citation-badge">📌 ${escapeHtml(cite)}</span>`
+            ).join('');
+    } else {
+        document.getElementById('caseCitations').textContent = 'No citations available';
+    }
+    
+    // Extracted citations (cases THIS case cites)
+    if (caseData.extracted_citations) {
+        const extracted = caseData.extracted_citations;
+        document.getElementById('extractedCitationsSection').style.display = 'block';
+        
+        const totalFound = (extracted.total_numeric_found || 0) + (extracted.total_names_found || 0);
+        document.getElementById('totalCitationsFound').textContent = totalFound.toLocaleString();
+        document.getElementById('citationsInDbCount').textContent = extracted.total_in_database || 0;
+        
+        document.getElementById('loadingCitations').style.display = 'none';
+        
+        // Display numeric citations
+        if (extracted.numeric_matches && extracted.numeric_matches.length > 0) {
+            document.getElementById('numericCitations').style.display = 'block';
+            document.getElementById('numericCitationsList').innerHTML = 
+                extracted.numeric_matches.map(item => 
+                    `<span class="citation-badge clickable citation-numeric" 
+                           onclick="navigateToCase('${item.id}', '${escapeHtml(item.citation)}')" 
+                           title="Click to view: ${escapeHtml(item.title)}">
+                        📊 ${escapeHtml(item.citation)}
+                     </span>`
+                ).join('');
+        }
+        
+        // Display case name matches
+        if (extracted.name_matches && extracted.name_matches.length > 0) {
+            document.getElementById('nameCitations').style.display = 'block';
+            document.getElementById('nameCitationsList').innerHTML = 
+                extracted.name_matches.map(item => {
+                    const matchInfo = item.match_score ? ` (${item.match_score}% match)` : '';
+                    return `<span class="citation-badge clickable citation-name" 
+                           onclick="navigateToCase('${item.id}', '${escapeHtml(item.citation)}')" 
+                           title="Click to view: ${escapeHtml(item.title)}${matchInfo}">
+                        📝 ${escapeHtml(item.citation)}
+                     </span>`;
+                }).join('');
+        }
+        
+        // Show message if nothing found
+        if (extracted.total_in_database === 0) {
+            document.getElementById('noCitationsFound').style.display = 'block';
+        }
+    }
+    
+    // Categories
+    if (doc.category && doc.category.length > 0) {
+        document.getElementById('caseCategories').innerHTML = 
+            doc.category.map(cat => `<span class="tag">${escapeHtml(cat)}</span>`).join('');
+    } else {
+        document.getElementById('categoriesSection').style.display = 'none';
+    }
+    
+    // Judges
+    if (doc.judges) {
+        document.getElementById('caseJudges').textContent = doc.judges;
+    } else {
+        document.getElementById('judgesSection').style.display = 'none';
+    }
+    
+    // Attorneys
+    if (doc.attorneys) {
+        document.getElementById('caseAttorneys').textContent = doc.attorneys;
+    } else {
+        document.getElementById('attorneysSection').style.display = 'none';
+    }
+    
+    // Word count for body
+    if (doc.body) {
+        const wordCount = estimateWords(doc.body_length);
+        document.getElementById('wordCount').textContent = `${wordCount.toLocaleString()} words`;
+    }
+}
+
+function toggleBody() {
+    const bodyDiv = document.getElementById('caseBody');
+    const btn = document.getElementById('toggleBodyBtn');
+    
+    if (!bodyVisible) {
+        bodyDiv.textContent = caseData.document.body || 'No body text available';
+        bodyDiv.style.display = 'block';
+        btn.textContent = 'Hide Full Text';
+        bodyVisible = true;
+    } else {
+        bodyDiv.style.display = 'none';
+        btn.textContent = 'Show Full Text';
+        bodyVisible = false;
+    }
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return 'Unknown';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+    } catch {
+        return dateStr;
+    }
+}
+
+function estimateWords(bytes) {
+    // Rough estimate: average 5 characters per word
+    return Math.round(bytes / 5);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function navigateToCase(caseId, citation) {
+    // Create status message
+    const section = document.getElementById('extractedCitationsSection');
+    const statusMsg = document.createElement('div');
+    statusMsg.className = 'citation-lookup-status success';
+    statusMsg.innerHTML = `✓ Opening case cited as "${escapeHtml(citation)}"...<br>Redirecting...`;
+    section.prepend(statusMsg);
+    
+    // Navigate after short delay
+    setTimeout(() => {
+        window.location.href = `/case/${caseId}`;
+    }, 800);
+}
+
+// Load case on page load
+loadCase();
+</script>
+{% endblock %}
+

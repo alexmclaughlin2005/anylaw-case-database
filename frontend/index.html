@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AnyLaw Case Database</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html">AnyLaw Database Navigator</a>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">Dashboard</a></li>
+                <li><a href="search.html">Search Cases</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <main class="main-content">
+        <div class="container">
+            <div class="page-header">
+                <h1>📚 Lexsphere Case Database Dashboard</h1>
+                <p class="subtitle">Explore and analyze 8.5M+ U.S. judicial opinions</p>
+            </div>
+            
+            <div class="loading" id="loading">Loading database statistics...</div>
+            
+            <div class="stats-grid" id="stats-grid" style="display: none;">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <h3 id="total-cases">-</h3>
+                        <p>Total Cases</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">🏛️</div>
+                    <div class="stat-content">
+                        <h3 id="total-jurisdictions">-</h3>
+                        <p>Jurisdictions</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-content">
+                        <h3 id="date-range">-</h3>
+                        <p>Date Range</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-content">
+                        <h3 id="avg-length">-</h3>
+                        <p>Avg. Case Length</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="charts-grid" id="charts-grid" style="display: none;">
+                <div class="chart-card">
+                    <h2>Top Jurisdictions</h2>
+                    <canvas id="jurisdictionsChart"></canvas>
+                </div>
+                
+                <div class="chart-card">
+                    <h2>Cases by Year</h2>
+                    <canvas id="yearsChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="action-section">
+                <h2>What would you like to do?</h2>
+                <div class="action-cards">
+                    <a href="search.html" class="action-card">
+                        <div class="action-icon">🔍</div>
+                        <h3>Search Cases</h3>
+                        <p>Find specific cases by title, jurisdiction, or date</p>
+                    </a>
+                    
+                    <a href="search.html" class="action-card">
+                        <div class="action-icon">📖</div>
+                        <h3>Citation Lookup</h3>
+                        <p>Find a case by its legal citation (e.g., "367 U.S. 1")</p>
+                    </a>
+                    
+                    <div class="action-card" onclick="window.location.reload()">
+                        <div class="action-icon">📈</div>
+                        <h3>View Statistics</h3>
+                        <p>Analyze trends and patterns in the database</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <h2>About This Database</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h3>Coverage</h3>
+                        <ul>
+                            <li>U.S. Supreme Court (since 1882)</li>
+                            <li>All Federal Circuit Courts</li>
+                            <li>Federal District Courts</li>
+                            <li>State Supreme and Appellate Courts</li>
+                            <li>Bankruptcy and Tribal Courts</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h3>Data Structure</h3>
+                        <ul>
+                            <li>Full opinion text</li>
+                            <li>Structured metadata (jurisdiction, docket, date)</li>
+                            <li>1,925 legal citations for cross-referencing</li>
+                            <li>Attorney and judge information</li>
+                            <li>Case categories and classifications</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h3>Use Cases</h3>
+                        <ul>
+                            <li>Legal AI model training (RAG, LLMs)</li>
+                            <li>Legal research tools</li>
+                            <li>Analytics and citators</li>
+                            <li>Academic research</li>
+                            <li>Compliance solutions</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 AnyLaw - Lexsphere Case Database Navigator</p>
+            <p>Database contains 8.5M+ cases from 200+ jurisdictions</p>
+        </div>
+    </footer>
+    
+    <script src="env.js"></script>
+    <script src="static/js/api.js"></script>
+    <script src="static/js/main.js"></script>
+    <script>
+let statsData = null;
+let jurisdictionsChart = null;
+let yearsChart = null;
+
+async function loadStats() {
+    try {
+        statsData = await api.getStats();
+        displayStats();
+        createCharts();
+    } catch (error) {
+        console.error('Error loading stats:', error);
+        document.getElementById('loading').textContent = 'Error loading statistics';
+    }
+}
+
+function displayStats() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('stats-grid').style.display = 'grid';
+    document.getElementById('charts-grid').style.display = 'grid';
+    
+    document.getElementById('total-cases').textContent = statsData.total_cases.toLocaleString();
+    document.getElementById('total-jurisdictions').textContent = Object.keys(statsData.jurisdictions).length;
+    
+    if (statsData.date_range.earliest && statsData.date_range.latest) {
+        document.getElementById('date-range').textContent = 
+            `${statsData.date_range.earliest} - ${statsData.date_range.latest}`;
+    }
+    
+    const avgLengthKB = (statsData.avg_body_length / 1024).toFixed(0);
+    document.getElementById('avg-length').textContent = `${avgLengthKB} KB`;
+}
+
+function createCharts() {
+    // Jurisdictions chart
+    const jurisdictionData = Object.entries(statsData.jurisdictions).slice(0, 10);
+    const jurisdictionLabels = jurisdictionData.map(([k, v]) => k);
+    const jurisdictionValues = jurisdictionData.map(([k, v]) => v);
+    
+    const jurisdictionsCtx = document.getElementById('jurisdictionsChart').getContext('2d');
+    jurisdictionsChart = new Chart(jurisdictionsCtx, {
+        type: 'bar',
+        data: {
+            labels: jurisdictionLabels,
+            datasets: [{
+                label: 'Number of Cases',
+                data: jurisdictionValues,
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+    
+    // Years chart (show only recent years to avoid clutter)
+    const yearEntries = Object.entries(statsData.years);
+    const recentYears = yearEntries.slice(-30); // Last 30 years
+    const yearLabels = recentYears.map(([k, v]) => k);
+    const yearValues = recentYears.map(([k, v]) => v);
+    
+    const yearsCtx = document.getElementById('yearsChart').getContext('2d');
+    yearsChart = new Chart(yearsCtx, {
+        type: 'line',
+        data: {
+            labels: yearLabels,
+            datasets: [{
+                label: 'Cases per Year',
+                data: yearValues,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+// Load stats on page load
+loadStats();
+    </script>
+</body>
+</html>
+
