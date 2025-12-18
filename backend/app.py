@@ -20,7 +20,15 @@ CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')
 CORS(app, resources={r"/api/*": {"origins": CORS_ORIGINS}})
 
 # Configuration
-DATA_DIR = Path(os.getenv('DATA_DIR', Path(__file__).parent / "data"))
+# When deployed to Railway with root directory 'backend', 
+# the data is at ../Anylaw sample documents-b
+if os.getenv('RAILWAY_ENVIRONMENT'):
+    # Railway deployment - go up one level to find data
+    DATA_DIR = Path(__file__).parent.parent / "Anylaw sample documents-b"
+else:
+    # Local development - use symlink or env var
+    DATA_DIR = Path(os.getenv('DATA_DIR', Path(__file__).parent / "data"))
+
 INDEX_FILE = DATA_DIR / "index.json"
 
 # Word cloud exclusion list (from memory)
