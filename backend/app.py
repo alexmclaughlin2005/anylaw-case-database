@@ -206,10 +206,14 @@ try:
     print(f"🔄 Loading database index...")
     stats = db.get_stats()
     print(f"✅ Successfully loaded {stats['total_cases']} cases!")
+    print(f"✅ Backend initialization complete!")
 except Exception as e:
     print(f"❌ ERROR loading database: {e}")
     import traceback
     traceback.print_exc()
+    # Don't crash - create empty database
+    print(f"⚠️  Continuing with limited functionality...")
+    db = None
 
 
 # Health check endpoint for Railway
@@ -239,7 +243,15 @@ def test():
 @app.route('/api/stats')
 def api_stats():
     """Get database statistics"""
-    return jsonify(db.get_stats())
+    try:
+        if db is None:
+            return jsonify({'error': 'Database not initialized'}), 500
+        return jsonify(db.get_stats())
+    except Exception as e:
+        print(f"❌ Error in /api/stats: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/jurisdictions')
