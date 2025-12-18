@@ -205,6 +205,18 @@ def health_check():
         'version': '1.0.0'
     })
 
+@app.route('/test')
+def test():
+    """Simple test endpoint that doesn't require data"""
+    return jsonify({
+        'message': 'Backend is running!',
+        'python_version': '3.11',
+        'flask': 'working',
+        'data_dir': str(DATA_DIR),
+        'data_exists': DATA_DIR.exists() if DATA_DIR else False,
+        'index_exists': INDEX_FILE.exists() if INDEX_FILE else False
+    })
+
 
 # API Routes
 @app.route('/api/stats')
