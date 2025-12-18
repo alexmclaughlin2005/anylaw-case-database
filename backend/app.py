@@ -21,10 +21,11 @@ CORS(app, resources={r"/api/*": {"origins": CORS_ORIGINS}})
 
 # Configuration
 # When deployed to Railway with root directory 'backend', 
-# the data is at ../Anylaw sample documents-b
+# Railway copies everything to /app, so data is at /app/Anylaw sample documents-b
 if os.getenv('RAILWAY_ENVIRONMENT'):
-    # Railway deployment - go up one level to find data
-    DATA_DIR = Path(__file__).parent.parent / "Anylaw sample documents-b"
+    # Railway deployment - data is in the parent of the app directory
+    # /app/app.py -> parent is /app -> sibling is /app/Anylaw sample documents-b
+    DATA_DIR = Path("/app") / "Anylaw sample documents-b"
 else:
     # Local development - use symlink or env var
     DATA_DIR = Path(os.getenv('DATA_DIR', Path(__file__).parent / "data"))
